@@ -127,5 +127,26 @@ func (githubClient *GitHubClient) GetCommits(update Update) (*list.List, error) 
 	if masterCommits[0].Commit.Author.Date.After(update.Time) {
 		commits.PushBack(masterCommits[0])
 	}
+
+	// Loop through branches, pick ones that match the filter and then check for commits
+	branches, _, _ := client.Repositories.ListBranches(
+		githubClient.From, githubClient.Repo, &github.ListOptions{1, 500})
+	for _, branch := range branches {
+		log.Infof("Found branch  %s", *branch.Name)
+		if githubClient.TargetBranch != "" {
+			matched := re.Match([]byte(*branch.Name))
+			if matched != true {
+				log.Infof("Branch %s does not match, skipping", *branch.Name)
+				continue
+			}
+			commits, _, _ := client.Repositories.ListCommits(
+				githubClient.From, githubClient.Repo, &github.CommitsListOptions{SHA: *branch.Name})
+			//log.Infof("Found commit %v", commits[0])
+			if commits[0].Commit.Author.Date.After(update.Time) {
+				log.Infof("Would use commit %v", commits[0].SHA)
+			}
+		}
+	}
+
 	return commits, nil
 }
